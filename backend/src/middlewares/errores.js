@@ -18,7 +18,7 @@ function manejarErrores(err, req, res, next) {
   if (err instanceof ErrorHttp) {
     return res.status(err.status).json({ error: err.message, ...err.extra });
   }
-  if (err.name?.startsWith('SequelizeConnection')) {
+  if (err.name?.startsWith('SequelizeConnection') || err.name === 'SequelizeHostNotFoundError') {
     console.error('[DB] No se pudo conectar a Supabase:', err.message);
     return res.status(503).json({ error: 'No se pudo conectar a la base de datos. Revisá DATABASE_URL y que el proyecto de Supabase no esté pausado.' });
   }

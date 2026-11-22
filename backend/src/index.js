@@ -15,6 +15,9 @@ app.use(express.json({ limit: '200kb' }));
 app.get('/', (req, res) => res.json({ app: 'Think&Eat API', salud: '/api/salud' }));
 
 app.get('/api/salud', async (req, res) => {
+  if (sequelize.errorConfiguracion) {
+    return res.status(500).json({ ok: false, base: 'mal configurada', detalle: sequelize.errorConfiguracion });
+  }
   try {
     await sequelize.authenticate();
     res.json({ ok: true, base: 'conectada' });
