@@ -11,14 +11,17 @@ Contale a la app qué tenés en la heladera y te da **5 ideas de almuerzos y cen
 
 - **Carga rápida en texto libre:** escribís `2 papas medianas`, `medio kilo de carne picada` o `una docena de huevos` y la app entiende el ingrediente, la cantidad, la unidad y el tamaño.
 - **Dropdown con buscador** agrupado por categoría. Ignora acentos y plurales y también busca por sinónimos (`zuquini`, `maicena`, `bife de chorizo`…).
-- **Ingredientes nuevos:** si algo no está en la lista, lo agregás desde el mismo buscador y queda guardado en la base para la próxima.
-- **Unidad, cantidad y tamaño:** unidad, docena, diente, atado, g, kg, ml, l, taza, cucharada, etc. El tamaño (chico, mediano o grande) aparece solo en los ingredientes que lo tienen.
-- **Sugerencias inteligentes:** ordena las recetas según cuánto aprovechan tu heladera. Le da menos peso a los condimentos, da por hecho que tenés sal, pimienta y aceite y avisa si la cantidad no alcanza ("te alcanza para unas 2 porciones").
-- **Receta completa:** ingredientes marcados según si los tenés o te faltan, pasos con tiempos que podés tocar para marcarlos como hechos y un consejo por receta.
-- **Imágenes:** cada ingrediente y receta busca su foto en Wikipedia/Wikimedia (imágenes libres) y la guarda en la base. Mientras carga, o si no la encuentra, muestra un emoji.
+- **Ingredientes propios:** si algo no está en la lista, lo agregás desde el buscador. Si es una variedad de uno existente (por ejemplo "Papa negra" es una papa), la app lo detecta y te propone vincularlo: así cuenta en todas las recetas que llevan ese ingrediente.
+- **Agregar comidas:** desde el botón **Agregar comida** se abre un panel lateral para cargar una receta propia con sus ingredientes (cantidad, unidad, tamaño, opcional) y sus pasos (con fuego, tapa y minutos). Aparece en las ideas como cualquier otra, con la etiqueta "Tu receta".
+- **Sugerencias inteligentes:** ordena las recetas según cuánto aprovechan tu heladera. Le da menos peso a los condimentos, da por hecho que tenés sal, pimienta y aceite y avisa si la cantidad no alcanza.
+- **Receta completa:**
+  - **Para cuántas personas:** un selector que recalcula todas las cantidades.
+  - **Ingredientes:** marcados según si los tenés o te faltan.
+  - **Pasos:** cada uno indica el **fuego** (fuerte, medio, bajo, horno y temperatura) y si la olla va **tapada o destapada**, además de los minutos. Se pueden tocar para marcarlos como hechos.
+- **Fotos:** las de los 182 ingredientes están verificadas una por una (fotos libres de Wikimedia). Las recetas buscan su foto en Wikipedia y la guardan.
 - Tu heladera queda guardada en el navegador. Al sacar un ingrediente o vaciar la heladera tenés la opción de **Deshacer**.
 
-La base trae **55 recetas** (solo almuerzos y cenas), **86 ingredientes** y **250 pasos**.
+La base trae **140 recetas** (solo almuerzos y cenas), **182 ingredientes** y **540 pasos**.
 
 ---
 
@@ -28,10 +31,10 @@ La base trae **55 recetas** (solo almuerzos y cenas), **86 ingredientes** y **25
 
 1. En tu proyecto de Supabase andá a **SQL Editor → New query**.
 2. Pegá el contenido de `database/01_tablas.sql` y tocá **Run**.
-3. Hacé lo mismo con `database/02_datos.sql`. Al final te muestra cuántas recetas e ingredientes se cargaron.
+3. Hacé lo mismo con `database/02_datos.sql`. Al final te muestra cuántas recetas, ingredientes y pasos se cargaron.
 4. Copiá la cadena de conexión: botón **Connect** (arriba en el panel) → **Transaction pooler** (puerto `6543`). Reemplazá `[YOUR-PASSWORD]` por la contraseña de la base. Si no la recordás, se resetea en *Project Settings → Database*. Si tiene símbolos como `@`, `#` o `/`, cambiala por una sin símbolos.
 
-> `02_datos.sql` se puede volver a correr sin problema: borra y recarga los datos base, pero **conserva los ingredientes que agregaste desde la app**.
+> `02_datos.sql` **actualiza** la base sin borrar nada tuyo: agrega las columnas nuevas si faltan, suma o actualiza ingredientes y recetas base, y conserva los ingredientes y las comidas que cargaste desde la app y las fotos ya guardadas. Corrélo de nuevo cada vez que se actualicen los datos.
 >
 > Las tablas tienen activada la seguridad por filas (RLS) sin políticas. Eso bloquea la API pública de Supabase, pero no afecta al backend, que se conecta como dueño de las tablas.
 >
@@ -121,6 +124,8 @@ Think-Eat/
 │   ├── 02_datos.sql             Datos (generado)
 │   └── generador/
 │       ├── datos.js             Fuente de las recetas e ingredientes
+│       ├── fuego.js             Fuego y tapa de cada paso
+│       ├── fotos-ingredientes.json  Fotos verificadas de ingredientes
 │       └── generar.js           Genera 02_datos.sql
 ├── backend/
 │   ├── src/
@@ -136,27 +141,35 @@ Think-Eat/
     └── src/
         ├── App.jsx
         ├── theme.js             Paleta y tipografía
-        ├── components/          Heladera, buscador, tarjetas, receta…
+        ├── components/          Heladera, buscador, tarjetas, receta, panel de comidas…
         ├── hooks/               Catálogo y heladera
         └── utils/interpretar.js Entiende "2 papas medianas"
 ```
 
 ## Sumar recetas
 
-1. Agregá la receta en `database/generador/datos.js`, siguiendo el formato de las demás.
-2. Desde la raíz, corré `npm run datos`: valida todo (ingredientes, unidades, tamaños) y regenera `database/02_datos.sql`.
-3. Ejecutá `02_datos.sql` en el SQL Editor de Supabase.
+La forma más simple es el botón **Agregar comida** de la app. Para sumarlas a la lista base (las que vienen con la app):
+
+1. Agregá la receta **al final** de `database/generador/datos.js` (el orden define los Id).
+2. En `database/generador/fuego.js` indicá el fuego y la tapa de sus pasos (el formato está explicado arriba del archivo).
+3. Si sumás ingredientes, agregá su foto (o `null`) en `fotos-ingredientes.json`.
+4. Desde la raíz, corré `npm run datos`: valida todo y regenera `database/02_datos.sql`.
+5. Ejecutá `02_datos.sql` en el SQL Editor de Supabase.
 
 ## API
 
 | Método | Ruta | Para qué |
 |---|---|---|
 | GET | `/api/ingredientes` | Lista de ingredientes con categoría y unidad habitual |
-| POST | `/api/ingredientes` | Crea un ingrediente nuevo `{ nombre, categoriaId, unidadDefaultId, tieneTamanio?, pesoUnidadGr? }` |
+| POST | `/api/ingredientes` | Crea un ingrediente nuevo `{ nombre, categoriaId, unidadDefaultId, tieneTamanio?, pesoUnidadGr?, equivaleAId? }` |
+| PATCH | `/api/ingredientes/:id` | Cambia a qué ingrediente equivale uno propio `{ equivaleAId }` |
 | GET | `/api/unidades` | Unidades de medida |
 | GET | `/api/categorias` | Categorías de ingredientes |
 | POST | `/api/sugerencias` | `{ items: [{ ingredienteId, cantidad, unidadId, tamanio }], excluir: [ids] }` → 5 recetas |
-| GET | `/api/recetas/:id` | Receta completa con ingredientes y pasos |
+| GET | `/api/recetas/:id` | Receta completa con ingredientes y pasos (con fuego y tapa) |
+| POST | `/api/recetas` | Crea una comida propia con sus ingredientes y pasos |
+| DELETE | `/api/recetas/:id` | Borra una comida propia (las de la app no se pueden borrar) |
+| GET | `/api/recetas/categorias` | Categorías de recetas existentes |
 | GET | `/api/imagenes/:tipo/:id` | URL de la foto (`tipo`: `ingrediente` o `receta`) |
 | GET | `/api/salud` | Estado de la conexión a la base |
 
@@ -165,6 +178,7 @@ Think-Eat/
 Para cada receta se separan los ingredientes **principales** de los **opcionales**. Los **básicos** (sal, pimienta y aceite) no se cuentan.
 
 - Una receta entra en la lista si tenés al menos un ingrediente principal que no sea un condimento.
+- Un ingrediente propio que equivale a otro (Papa negra → Papa) cuenta como ese, tanto en tu heladera como en las recetas.
 - La **compatibilidad** (0 a 100 %) sale en un 85 % de cuántos principales tenés y en un 15 % de si te alcanzan las cantidades. Los condimentos pesan menos, para que te falte el comino no hunda una receta.
 - Para comparar cantidades, todo se pasa a gramos: una papa mediana ≈ 170 g, una grande ≈ 240 g, una docena de huevos ≈ 600 g, etc.
 - "Mostrar más alternativas" manda los IDs ya vistos en `excluir` y trae las 5 siguientes.

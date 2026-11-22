@@ -11,6 +11,7 @@ import AgregarIngrediente from './components/AgregarIngrediente'
 import Heladera from './components/Heladera'
 import Sugerencias from './components/Sugerencias'
 import DetalleReceta from './components/DetalleReceta'
+import PanelNuevaComida from './components/PanelNuevaComida'
 import { useCatalogo } from './hooks/useCatalogo'
 import { useHeladera } from './hooks/useHeladera'
 import { api } from './api'
@@ -23,6 +24,7 @@ export default function App() {
   const [aviso, setAviso] = useState(null) // { texto, deshacer? }
   const [busqueda, setBusqueda] = useState({ estado: 'inicial', resultado: null, pagina: 1, vistas: [], version: -1, error: null })
   const [recetaAbierta, setRecetaAbierta] = useState(null)
+  const [panelComida, setPanelComida] = useState(false)
   const ideasRef = useRef(null)
 
   // Si se borró un ingrediente de la base, lo sacamos de la heladera guardada
@@ -38,7 +40,16 @@ export default function App() {
     () => heladera.items.map(({ ingredienteId, cantidad, unidadId, tamanio }) => ({ ingredienteId, cantidad, unidadId, tamanio })),
     [heladera.items],
   )
-  const idsEnHeladera = useMemo(() => new Set(heladera.items.map((x) => x.ingredienteId)), [heladera.items])
+  // Ids "canónicos": un ingrediente propio que equivale a otro (Papa negra -> Papa) cuenta como ese
+  const canonicos = useMemo(() => {
+    const s = new Set()
+    for (const x of heladera.items) {
+      s.add(x.ingredienteId)
+      const eq = catalogo.porId.get(x.ingredienteId)?.equivaleAId
+      if (eq) s.add(eq)
+    }
+    return s
+  }, [heladera.items, catalogo.porId])
 
   const buscar = useCallback(async ({ excluir = [], pagina = 1 } = {}) => {
     if (items.length === 0) return
@@ -105,7 +116,7 @@ export default function App() {
   return (
     <Box sx={{ minHeight: '100vh', pb: 10 }}>
       <Container maxWidth="lg">
-        <Encabezado />
+        <Encabezado onAgregarComida={() => setPanelComida(true)} />
 
         {/* Hero: la carga de ingredientes es la portada */}
         <Box component="main">
@@ -118,7 +129,7 @@ export default function App() {
           >
             <Typography variant="h1" sx={{ mb: 2 }}>¿Qué hay en tu heladera?</Typography>
             <Typography variant="body1" color="text.secondary" sx={{ fontSize: { sm: '1.12rem' }, maxWidth: '52ch' }}>
-              Contanos qué tenés y te damos ideas de almuerzos y cenas caseras, con la receta paso a paso. No hace falta usar todo.
+              Contanos qué tenés y te damos ideas de almuerzos y cenas caseras, con la receta paso a paso.
             </Typography>
           </Box>
 
@@ -177,7 +188,28 @@ export default function App() {
         </Box>
       </Container>
 
-      <DetalleReceta resumen={recetaAbierta} idsEnHeladera={idsEnHeladera} onCerrar={() => setRecetaAbierta(null)} />
+      <DetalleReceta
+        resumen={recetaAbierta}
+        canonicos={canonicos}
+        onCerrar={() => setRecetaAbierta(null)}
+        onBorrada={(r) => {
+          setRecetaAbierta(null)
+          notificar(`Borraste ${r.nombre}`)
+          if (busqueda.estado === 'listo') buscar()
+        }}
+      />
+
+      <PanelNuevaComida
+        abierto={panelComida}
+        onCerrar={() => setPanelComida(false)}
+        catalogo={catalogo}
+        onGuardada={(r) => {
+          setPanelComida(false)
+          notificar(`Guardaste ${r.nombre}. Ya aparece en las ideas.`)
+          if (busqueda.estado === 'listo') buscar()
+          setRecetaAbierta({ id: r.id, nombre: r.nombre })
+        }}
+      />
 
       <Snackbar
         key={aviso?.clave}

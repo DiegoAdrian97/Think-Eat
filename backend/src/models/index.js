@@ -47,6 +47,8 @@ const Ingrediente = sequelize.define('Ingrediente', {
   busquedaImagen: { type: DataTypes.STRING(150), field: 'BusquedaImagen' },
   imagenUrl: { type: DataTypes.STRING(600), field: 'ImagenUrl' },
   esPersonalizado: { type: DataTypes.BOOLEAN, field: 'EsPersonalizado', defaultValue: false },
+  // Ingrediente base al que equivale (ej: "Papa negra" -> "Papa")
+  equivaleAId: { type: DataTypes.INTEGER, field: 'EquivaleAId', allowNull: true },
   fechaAlta: { type: DataTypes.DATE, field: 'FechaAlta', defaultValue: DataTypes.NOW },
 }, { tableName: 'Ingredientes' });
 
@@ -62,6 +64,8 @@ const Receta = sequelize.define('Receta', {
   consejo: { type: DataTypes.STRING(600), field: 'Consejo' },
   busquedaImagen: { type: DataTypes.STRING(150), field: 'BusquedaImagen' },
   imagenUrl: { type: DataTypes.STRING(600), field: 'ImagenUrl' },
+  esPersonalizada: { type: DataTypes.BOOLEAN, field: 'EsPersonalizada', defaultValue: false },
+  fechaAlta: { type: DataTypes.DATE, field: 'FechaAlta', defaultValue: DataTypes.NOW },
 }, { tableName: 'Recetas' });
 
 const RecetaIngrediente = sequelize.define('RecetaIngrediente', {
@@ -83,12 +87,17 @@ const RecetaPaso = sequelize.define('RecetaPaso', {
   titulo: { type: DataTypes.STRING(100), allowNull: false, field: 'Titulo' },
   descripcion: { type: DataTypes.TEXT, allowNull: false, field: 'Descripcion' },
   minutos: { type: DataTypes.INTEGER, field: 'Minutos' },
+  // "Fuego medio", "Horno 200 °C", "Fuera del fuego"...
+  fuego: { type: DataTypes.STRING(30), field: 'Fuego' },
+  // "Tapado", "Destapado" o "Semitapado"
+  tapa: { type: DataTypes.STRING(20), field: 'Tapa' },
 }, { tableName: 'RecetaPasos' });
 
 // Relaciones
 Categoria.hasMany(Ingrediente, { as: 'ingredientes', foreignKey: 'categoriaId' });
 Ingrediente.belongsTo(Categoria, { as: 'categoria', foreignKey: 'categoriaId' });
 Ingrediente.belongsTo(Unidad, { as: 'unidadDefault', foreignKey: 'unidadDefaultId' });
+Ingrediente.belongsTo(Ingrediente, { as: 'equivaleA', foreignKey: 'equivaleAId' });
 
 Receta.hasMany(RecetaIngrediente, { as: 'ingredientes', foreignKey: 'recetaId' });
 RecetaIngrediente.belongsTo(Receta, { as: 'receta', foreignKey: 'recetaId' });

@@ -51,3 +51,28 @@ export function relevancia(ing, consulta) {
   if ([...formas(ing)].some((f) => f.startsWith(q))) return 2
   return 3
 }
+
+/**
+ * Detecta si un ingrediente nuevo es una variante de uno de la lista.
+ *   "Papa negra" -> Papa, "Cebolla morada grande" -> Cebolla, "Queso tybo light" -> Queso cremoso
+ * Busca la forma más larga (nombre, plural o sinónimo) que aparezca como palabras completas.
+ */
+export function detectarEquivalente(nombre, ingredientes) {
+  const n = normalizar(nombre)
+  if (n.length < 3) return null
+  const frase = ` ${n.split(' ').map(singular).join(' ')} `
+  const original = ` ${n} `
+  let mejor = null
+  let largo = 0
+  for (const ing of ingredientes) {
+    if (ing.esPersonalizado) continue
+    for (const f of formas(ing)) {
+      if (f === n || f.length < 3) continue
+      if ((frase.includes(` ${f} `) || original.includes(` ${f} `)) && f.length > largo) {
+        mejor = ing
+        largo = f.length
+      }
+    }
+  }
+  return mejor
+}

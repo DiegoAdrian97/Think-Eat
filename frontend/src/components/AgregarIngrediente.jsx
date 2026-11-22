@@ -148,7 +148,12 @@ export default function AgregarIngrediente({ catalogo, edicion, onAgregar, onGua
     } else {
       elegirIngrediente(ingrediente)
     }
-    onNotificar(existia ? `${ingrediente.nombre} ya estaba en la lista` : `Guardaste ${ingrediente.nombre} como ingrediente nuevo`)
+    const equivale = ingrediente.equivaleAId ? ingredientes.find((x) => x.id === ingrediente.equivaleAId) : null
+    onNotificar(existia
+      ? `${ingrediente.nombre} ya estaba en la lista`
+      : equivale
+        ? `Guardaste ${ingrediente.nombre}: cuenta como ${equivale.nombre.toLowerCase()} en las ideas`
+        : `Guardaste ${ingrediente.nombre} como ingrediente nuevo`)
   }
 
   return (
@@ -287,6 +292,7 @@ export default function AgregarIngrediente({ catalogo, edicion, onAgregar, onGua
         nombreInicial={dialogo.nombre}
         categorias={categorias}
         unidades={unidades}
+        ingredientes={ingredientes}
         onCerrar={() => setDialogo({ abierto: false, nombre: '' })}
         onCrear={crear}
       />

@@ -8,8 +8,23 @@ const app = express();
 const PORT = Number(process.env.PORT) || 3001;
 
 // FRONTEND_URL: una o varias URLs separadas por coma, o * para permitir cualquiera
-const origenes = (process.env.FRONTEND_URL || 'http://localhost:5173').split(',').map((s) => s.trim().replace(/\/$/, ''));
-app.use(cors({ origin: origenes.includes('*') ? true : origenes }));
+// (tolera comillas, "FRONTEND_URL=" pegado adelante, espacios y barra final)
+const origenes = String(process.env.FRONTEND_URL || 'http://localhost:5173')
+  .trim()
+  .replace(/^FRONTEND_URL\s*=\s*/i, '')
+  .replace(/^(['"])(.*)\1$/, '$2')
+  .split(',')
+  .map((s) => s.trim().replace(/^['"]|['"]$/g, '').replace(/\/+$/, '').toLowerCase())
+  .filter(Boolean);
+const todos = origenes.includes('*');
+app.use(cors({
+  origin(origen, listo) {
+    // sin Origin: pedidos desde el navegador directo, curl, etc.
+    if (!origen || todos || origenes.includes(origen.toLowerCase())) return listo(null, true);
+    console.warn(`[CORS] Origen rechazado: ${origen}. Permitidos: ${origenes.join(', ')}`);
+    return listo(null, false);
+  },
+}));
 app.use(express.json({ limit: '200kb' }));
 
 app.get('/', (req, res) => res.json({ app: 'Think&Eat API', salud: '/api/salud' }));

@@ -7,6 +7,11 @@ import IconButton from '@mui/material/IconButton'
 import Skeleton from '@mui/material/Skeleton'
 import Alert from '@mui/material/Alert'
 import ButtonBase from '@mui/material/ButtonBase'
+import Button from '@mui/material/Button'
+import TextField from '@mui/material/TextField'
+import MenuItem from '@mui/material/MenuItem'
+import Link from '@mui/material/Link'
+import CircularProgress from '@mui/material/CircularProgress'
 import useMediaQuery from '@mui/material/useMediaQuery'
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded'
 import CheckRoundedIcon from '@mui/icons-material/CheckRounded'
@@ -15,10 +20,14 @@ import PeopleAltRoundedIcon from '@mui/icons-material/PeopleAltRounded'
 import SignalCellularAltRoundedIcon from '@mui/icons-material/SignalCellularAltRounded'
 import TimerOutlinedIcon from '@mui/icons-material/TimerOutlined'
 import LightbulbOutlinedIcon from '@mui/icons-material/LightbulbOutlined'
+import LocalFireDepartmentRoundedIcon from '@mui/icons-material/LocalFireDepartmentRounded'
+import MicrowaveRoundedIcon from '@mui/icons-material/MicrowaveRounded'
+import SoupKitchenRoundedIcon from '@mui/icons-material/SoupKitchenRounded'
+import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import ImagenAlimento from './ImagenAlimento'
 import Transicion from './Transicion'
 import { api } from '../api'
-import { cantidadLegible } from '../utils/formato'
+import { cantidadLegible, escalar } from '../utils/formato'
 import { colores } from '../theme'
 
 const duracion = (min) => (min < 60 ? `${min} min` : `${Math.floor(min / 60)} h${min % 60 ? ` ${min % 60} min` : ''}`)
@@ -32,7 +41,7 @@ function Dato({ icono, children }) {
   )
 }
 
-function FilaIngrediente({ ri, tengo }) {
+function FilaIngrediente({ ri, tengo, factor }) {
   const ing = ri.ingrediente
   const basico = ing.esBasico
   return (
@@ -68,8 +77,25 @@ function FilaIngrediente({ ri, tengo }) {
         )}
       </Box>
       <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'right', flexShrink: 0, maxWidth: '45%' }}>
-        {cantidadLegible(ri.cantidad, ri.unidad, ri.tamanio, ing.nombre)}
+        {cantidadLegible(escalar(ri.cantidad, ri.unidad, factor), ri.unidad, ri.tamanio, ing.nombre)}
       </Typography>
+    </Box>
+  )
+}
+
+// Color de la llama según la intensidad
+function colorFuego(f) {
+  if (/fuerte/i.test(f)) return '#C2512F'
+  if (/medio/i.test(f)) return '#D98B2B'
+  if (/bajo|mínimo/i.test(f)) return '#C9A227'
+  return colores.gris
+}
+
+function Etiqueta({ icono, fondo, children }) {
+  return (
+    <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.4, px: 0.9, py: 0.1, borderRadius: 999, bgcolor: fondo, border: `1px solid ${colores.linea}` }}>
+      {icono}
+      <Typography variant="caption" sx={{ fontWeight: 600 }}>{children}</Typography>
     </Box>
   )
 }
@@ -117,10 +143,18 @@ function Paso({ paso, hecho, onAlternar }) {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: 0.25 }}>
             <Typography variant="h5" component="h4" sx={{ textDecoration: hecho ? 'line-through' : 'none' }}>{paso.titulo}</Typography>
             {paso.minutos ? (
-              <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.4, px: 0.9, py: 0.1, borderRadius: 999, bgcolor: colores.yemaClara }}>
-                <TimerOutlinedIcon sx={{ fontSize: 14 }} />
-                <Typography variant="caption" sx={{ fontWeight: 600 }}>{duracion(paso.minutos)}</Typography>
-              </Box>
+              <Etiqueta icono={<TimerOutlinedIcon sx={{ fontSize: 14 }} />} fondo={colores.yemaClara}>{duracion(paso.minutos)}</Etiqueta>
+            ) : null}
+            {paso.fuego ? (
+              <Etiqueta
+                icono={paso.fuego.startsWith('Horno') ? <MicrowaveRoundedIcon sx={{ fontSize: 14 }} /> : <LocalFireDepartmentRoundedIcon sx={{ fontSize: 14, color: colorFuego(paso.fuego) }} />}
+                fondo={colores.escarcha}
+              >
+                {paso.fuego}
+              </Etiqueta>
+            ) : null}
+            {paso.tapa ? (
+              <Etiqueta icono={<SoupKitchenRoundedIcon sx={{ fontSize: 14 }} />} fondo={colores.escarcha}>{paso.tapa}</Etiqueta>
             ) : null}
           </Box>
           <Typography variant="body1" color="text.secondary" sx={{ maxWidth: '62ch' }}>{paso.descripcion}</Typography>
@@ -131,12 +165,15 @@ function Paso({ paso, hecho, onAlternar }) {
 }
 
 /** Receta completa: ingredientes (marcando lo que tenés) y preparación paso a paso */
-export default function DetalleReceta({ resumen, idsEnHeladera, onCerrar }) {
+export default function DetalleReceta({ resumen, canonicos, onCerrar, onBorrada }) {
   const abierto = Boolean(resumen)
   const celular = useMediaQuery('(max-width:600px)')
   const [receta, setReceta] = useState(null)
   const [error, setError] = useState(null)
   const [hechos, setHechos] = useState(() => new Set())
+  const [personas, setPersonas] = useState(null)
+  const [borrando, setBorrando] = useState(false)
+  const [confirmarBorrar, setConfirmarBorrar] = useState(false)
   // Guardamos la última receta para que no desaparezca el contenido durante la animación de cierre
   const [ultimo, setUltimo] = useState(null)
   useEffect(() => {
@@ -149,13 +186,22 @@ export default function DetalleReceta({ resumen, idsEnHeladera, onCerrar }) {
     setReceta(null)
     setError(null)
     setHechos(new Set())
+    setPersonas(null)
+    setConfirmarBorrar(false)
     api.receta(resumen.id)
-      .then((r) => vivo && setReceta(r))
+      .then((r) => {
+        if (!vivo) return
+        setReceta(r)
+        setPersonas(r.porciones)
+      })
       .catch((e) => vivo && setError(e.message))
     return () => {
       vivo = false
     }
   }, [resumen])
+
+  // Un ingrediente propio que equivale a otro (Papa negra -> Papa) cuenta como ese
+  const tengo = (ri) => canonicos.has(ri.ingrediente?.equivaleAId || ri.ingredienteId)
 
   const { principales, opcionales, cantidadQueTenes, totalPrincipales } = useMemo(() => {
     const lista = receta?.ingredientes ?? []
@@ -165,12 +211,30 @@ export default function DetalleReceta({ resumen, idsEnHeladera, onCerrar }) {
     return {
       principales: p,
       opcionales: o,
-      cantidadQueTenes: contables.filter((x) => idsEnHeladera.has(x.ingredienteId)).length,
+      cantidadQueTenes: contables.filter((x) => canonicos.has(x.ingrediente?.equivaleAId || x.ingredienteId)).length,
       totalPrincipales: contables.length,
     }
-  }, [receta, idsEnHeladera])
+  }, [receta, canonicos])
 
-  const datos = receta ?? ultimo
+  const base = receta?.porciones ?? ultimo?.porciones ?? 4
+  const factor = personas ? personas / base : 1
+  const opcionesPersonas = [...new Set([1, 2, 3, 4, 5, 6, 8, 10, 12, base])].sort((a, b) => a - b)
+
+  const borrar = async () => {
+    setBorrando(true)
+    try {
+      await api.borrarReceta(datos.id)
+      onBorrada?.(datos)
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setBorrando(false)
+      setConfirmarBorrar(false)
+    }
+  }
+
+  // Si solo tenemos el id (comida recién guardada), esperamos a que cargue
+  const datos = receta ?? (ultimo?.tiempoMin ? ultimo : null)
   const pasos = receta?.pasos ?? []
 
   const alternar = (n) =>
@@ -196,6 +260,11 @@ export default function DetalleReceta({ resumen, idsEnHeladera, onCerrar }) {
       }}
       aria-labelledby="titulo-receta"
     >
+      {!datos && (
+        <Box sx={{ p: 8, display: 'grid', placeItems: 'center', color: colores.albahaca }}>
+          {error ? <Alert severity="error" variant="outlined">{error}</Alert> : <CircularProgress color="inherit" size={28} />}
+        </Box>
+      )}
       {datos && (
         <Box>
           <Box sx={{ position: 'relative' }}>
@@ -219,12 +288,26 @@ export default function DetalleReceta({ resumen, idsEnHeladera, onCerrar }) {
           </Box>
 
           <Box sx={{ px: { xs: 2.5, sm: 5 }, pt: { xs: 3, sm: 4 }, pb: { xs: 4, sm: 5 } }}>
-            <Typography variant="body2" sx={{ color: colores.albahaca, fontWeight: 600, mb: 0.5 }}>{datos.categoria}</Typography>
+            <Typography variant="body2" sx={{ color: colores.albahaca, fontWeight: 600, mb: 0.5 }}>
+              {datos.categoria}{datos.esPersonalizada ? ' (agregada por vos)' : ''}
+            </Typography>
             <Typography id="titulo-receta" variant="h2" component="h2" sx={{ mb: 1.25 }}>{datos.nombre}</Typography>
             <Typography variant="body1" color="text.secondary" sx={{ maxWidth: '60ch', mb: 2 }}>{datos.descripcion}</Typography>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2.5, mb: 3 }}>
               <Dato icono={<ScheduleRoundedIcon fontSize="small" />}>{duracion(datos.tiempoMin)}</Dato>
-              <Dato icono={<PeopleAltRoundedIcon fontSize="small" />}>{datos.porciones} porciones</Dato>
+              <TextField
+                select
+                size="small"
+                label="Personas"
+                value={personas ?? base}
+                onChange={(e) => setPersonas(Number(e.target.value))}
+                sx={{ minWidth: 150, mt: -0.5 }}
+                slotProps={{ input: { startAdornment: <PeopleAltRoundedIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} /> } }}
+              >
+                {opcionesPersonas.map((p) => (
+                  <MenuItem key={p} value={p}>{p === 1 ? '1 persona' : `${p} personas`}</MenuItem>
+                ))}
+              </TextField>
               <Dato icono={<SignalCellularAltRoundedIcon fontSize="small" />}>{datos.dificultad}</Dato>
             </Box>
 
@@ -250,13 +333,19 @@ export default function DetalleReceta({ resumen, idsEnHeladera, onCerrar }) {
                     </Typography>
                   )}
                 </Box>
+                {receta && personas && personas !== base && (
+                  <Typography variant="caption" color="text.secondary" component="p" sx={{ mb: 1 }}>
+                    Cantidades para {personas === 1 ? '1 persona' : `${personas} personas`} (la receta original es para {base}).{' '}
+                    <Link component="button" type="button" onClick={() => setPersonas(base)} sx={{ verticalAlign: 'baseline' }}>Volver a {base}</Link>
+                  </Typography>
+                )}
                 {!receta && !error ? (
                   [0, 1, 2, 3, 4].map((i) => <Skeleton key={i} height={48} />)
                 ) : (
                   <>
                     <Box component="ul" sx={{ listStyle: 'none', p: 0, m: 0 }}>
                       {principales.map((ri) => (
-                        <FilaIngrediente key={ri.id} ri={ri} tengo={idsEnHeladera.has(ri.ingredienteId)} />
+                        <FilaIngrediente key={ri.id} ri={ri} tengo={tengo(ri)} factor={factor} />
                       ))}
                     </Box>
                     {opcionales.length > 0 && (
@@ -264,7 +353,7 @@ export default function DetalleReceta({ resumen, idsEnHeladera, onCerrar }) {
                         <Typography variant="h5" component="h4" sx={{ mt: 3, mb: 0.5 }}>Si tenés, suma</Typography>
                         <Box component="ul" sx={{ listStyle: 'none', p: 0, m: 0 }}>
                           {opcionales.map((ri) => (
-                            <FilaIngrediente key={ri.id} ri={ri} tengo={idsEnHeladera.has(ri.ingredienteId)} />
+                            <FilaIngrediente key={ri.id} ri={ri} tengo={tengo(ri)} factor={factor} />
                           ))}
                         </Box>
                       </>
@@ -290,6 +379,22 @@ export default function DetalleReceta({ resumen, idsEnHeladera, onCerrar }) {
                     {pasos.map((p) => (
                       <Paso key={p.id} paso={p} hecho={hechos.has(p.numero)} onAlternar={() => alternar(p.numero)} />
                     ))}
+                  </Box>
+                )}
+
+                {receta?.esPersonalizada && (
+                  <Box sx={{ mt: 3, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                    {confirmarBorrar ? (
+                      <>
+                        <Typography variant="body2">¿Borrar esta comida? No se puede deshacer.</Typography>
+                        <Button color="error" variant="contained" size="small" disabled={borrando} onClick={borrar}>Sí, borrar</Button>
+                        <Button size="small" color="inherit" onClick={() => setConfirmarBorrar(false)}>Cancelar</Button>
+                      </>
+                    ) : (
+                      <Button color="inherit" size="small" startIcon={<DeleteOutlineRoundedIcon />} onClick={() => setConfirmarBorrar(true)} sx={{ color: 'text.secondary' }}>
+                        Borrar esta comida
+                      </Button>
+                    )}
                   </Box>
                 )}
 

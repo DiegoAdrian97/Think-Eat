@@ -46,3 +46,32 @@ export function cantidadLegible(cantidad, unidad, tamanio, nombre) {
   const tam = textoTamanio(tamanio, cantidad, nombre)
   return tam ? `${base} ${tam}` : base
 }
+
+/**
+ * Escala una cantidad de receta a otra cantidad de porciones y la redondea
+ * a algo que se pueda medir en la cocina.
+ */
+export function escalar(cantidad, unidad, factor) {
+  if (cantidad === null || cantidad === undefined || !unidad || unidad.tipo === 'libre' || factor === 1) return cantidad
+  const v = cantidad * factor
+  const redondear = (paso) => Math.max(paso, Math.round(v / paso) * paso)
+  switch (unidad.abreviatura) {
+    case 'g':
+    case 'ml':
+      if (v < 20) return redondear(1)
+      if (v < 100) return redondear(5)
+      if (v < 500) return redondear(10)
+      return redondear(50)
+    case 'kg':
+    case 'l':
+    case 'taza':
+    case 'cda':
+    case 'cdta':
+      return redondear(0.25)
+    case 'pizca':
+      return Math.max(1, Math.round(v))
+    default:
+      // unidades que se cuentan: de a media
+      return redondear(0.5)
+  }
+}

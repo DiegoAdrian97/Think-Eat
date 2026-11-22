@@ -25,9 +25,13 @@ async function pedir(ruta, opciones = {}) {
 export const api = {
   ingredientes: () => pedir('/ingredientes'),
   crearIngrediente: (datos) => pedir('/ingredientes', { method: 'POST', body: datos }),
+  actualizarIngrediente: (id, datos) => pedir(`/ingredientes/${id}`, { method: 'PATCH', body: datos }),
   unidades: () => pedir('/unidades'),
   categorias: () => pedir('/categorias'),
   sugerencias: (items, excluir = []) => pedir('/sugerencias', { method: 'POST', body: { items, excluir, limite: 5 } }),
   receta: (id) => pedir(`/recetas/${id}`),
+  crearReceta: (datos) => pedir('/recetas', { method: 'POST', body: datos }),
+  borrarReceta: (id) => pedir(`/recetas/${id}`, { method: 'DELETE' }),
+  categoriasRecetas: () => pedir('/recetas/categorias'),
   imagen: (tipo, id) => pedir(`/imagenes/${tipo}/${id}`),
 }

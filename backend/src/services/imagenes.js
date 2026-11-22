@@ -72,6 +72,8 @@ async function resolverTermino(termino) {
 /** Devuelve la URL de imagen de una instancia (Ingrediente o Receta) y la guarda */
 async function imagenDe(instancia) {
   if (instancia.imagenUrl) return instancia.imagenUrl;
+  // "-" = sin foto a propósito (no hay una buena): se muestra el emoji
+  if (instancia.busquedaImagen === '-') return null;
   const termino = instancia.busquedaImagen || instancia.nombre;
   const url = await resolverTermino(termino);
   if (url) {

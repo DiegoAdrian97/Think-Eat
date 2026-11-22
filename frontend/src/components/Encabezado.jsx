@@ -1,5 +1,7 @@
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
+import Button from '@mui/material/Button'
+import PostAddRoundedIcon from '@mui/icons-material/PostAddRounded'
 import { colores } from '../theme'
 
 function Marca() {
@@ -13,13 +15,21 @@ function Marca() {
   )
 }
 
-export default function Encabezado() {
+export default function Encabezado({ onAgregarComida }) {
   return (
     <Box component="header" sx={{ display: 'flex', alignItems: 'center', gap: 1.25, py: { xs: 2.5, md: 3.5 } }}>
       <Marca />
       <Typography sx={{ fontFamily: '"Bricolage Grotesque Variable", sans-serif', fontWeight: 700, fontSize: '1.35rem', letterSpacing: '-0.03em', color: colores.grafito }}>
         Think&amp;Eat
       </Typography>
+      <Button
+        variant="outlined"
+        startIcon={<PostAddRoundedIcon />}
+        onClick={onAgregarComida}
+        sx={{ ml: 'auto', borderColor: colores.salvia, bgcolor: colores.superficie, '&:hover': { borderColor: colores.albahaca, bgcolor: colores.superficie } }}
+      >
+        Agregar comida
+      </Button>
     </Box>
   )
 }

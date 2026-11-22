@@ -94,6 +94,11 @@ export default function TarjetaReceta({ receta, destacada = false, onAbrir }) {
           >
             <Typography variant="caption" sx={{ fontWeight: 700 }}>{receta.compatibilidad}% con tu heladera</Typography>
           </Box>
+          {receta.esPersonalizada && (
+            <Box sx={{ position: 'absolute', top: 10, right: 10, px: 1, py: 0.25, borderRadius: 999, bgcolor: colores.albahaca, color: '#fff' }}>
+              <Typography variant="caption" sx={{ fontWeight: 700 }}>Tu receta</Typography>
+            </Box>
+          )}
         </Box>
 
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: destacada ? 1.25 : 0.75, py: destacada ? { sm: 1.5 } : 0, pr: destacada ? { sm: 1.5 } : 0, px: destacada ? { xs: 0.5, sm: 0 } : 0.5, pb: 0.5, minWidth: 0 }}>

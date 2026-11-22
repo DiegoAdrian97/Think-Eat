@@ -12,12 +12,17 @@ import FormControlLabel from '@mui/material/FormControlLabel'
 import Switch from '@mui/material/Switch'
 import Collapse from '@mui/material/Collapse'
 import Alert from '@mui/material/Alert'
+import Autocomplete from '@mui/material/Autocomplete'
+import Box from '@mui/material/Box'
 import Transicion from './Transicion'
+import ImagenAlimento from './ImagenAlimento'
+import { detectarEquivalente } from '../utils/texto'
+import { colores } from '../theme'
 
 // Unidades que tienen sentido como "unidad habitual" de un ingrediente nuevo
 const HABITUALES = ['u', 'g', 'ml', 'atado', 'paquete', 'lata', 'caja', 'feta', 'diente']
 
-export default function DialogoNuevoIngrediente({ abierto, nombreInicial, categorias, unidades, onCerrar, onCrear }) {
+export default function DialogoNuevoIngrediente({ abierto, nombreInicial, categorias, unidades, ingredientes = [], onCerrar, onCrear }) {
   const [nombre, setNombre] = useState('')
   const [categoriaId, setCategoriaId] = useState('')
   const [unidadId, setUnidadId] = useState('')
@@ -25,6 +30,19 @@ export default function DialogoNuevoIngrediente({ abierto, nombreInicial, catego
   const [peso, setPeso] = useState('')
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState(null)
+  const [equivalente, setEquivalente] = useState(null)
+  const [equivalenteTocado, setEquivalenteTocado] = useState(false)
+  const base = ingredientes.filter((i) => !i.esPersonalizado)
+
+  // Al elegir a qué equivale, copiamos su categoría y su forma de medirlo
+  const aplicarEquivalente = (ing) => {
+    setEquivalente(ing)
+    if (!ing) return
+    setCategoriaId(ing.categoriaId)
+    setUnidadId(ing.unidadDefaultId)
+    setTieneTamanio(Boolean(ing.tieneTamanio))
+    setPeso(ing.pesoUnidadGr ? String(ing.pesoUnidadGr) : '')
+  }
 
   const opcionesUnidad = unidades.filter((u) => HABITUALES.includes(u.abreviatura))
   const unidad = unidades.find((u) => u.id === unidadId)
@@ -39,7 +57,23 @@ export default function DialogoNuevoIngrediente({ abierto, nombreInicial, catego
     setTieneTamanio(false)
     setPeso('')
     setError(null)
+    setEquivalenteTocado(false)
+    const detectado = t ? detectarEquivalente(t, ingredientes) : null
+    setEquivalente(null)
+    if (detectado) aplicarEquivalente(detectado)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [abierto, nombreInicial, categorias, unidades])
+
+  const cambiarNombre = (valor) => {
+    setNombre(valor)
+    if (!equivalenteTocado) {
+      const detectado = detectarEquivalente(valor, ingredientes)
+      if (detectado?.id !== equivalente?.id) {
+        if (detectado) aplicarEquivalente(detectado)
+        else setEquivalente(null)
+      }
+    }
+  }
 
   const guardar = async (e) => {
     e.preventDefault()
@@ -56,6 +90,7 @@ export default function DialogoNuevoIngrediente({ abierto, nombreInicial, catego
         unidadDefaultId: unidadId,
         tieneTamanio: esConteo && tieneTamanio,
         pesoUnidadGr: esConteo && peso ? Number(peso) : null,
+        equivaleAId: equivalente?.id ?? null,
       })
     } catch (err) {
       setError(err.message)
@@ -81,7 +116,38 @@ export default function DialogoNuevoIngrediente({ abierto, nombreInicial, catego
           Queda guardado y lo vas a poder elegir la próxima vez.
         </Typography>
         <Stack spacing={2}>
-          <TextField label="Nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} autoFocus required slotProps={{ htmlInput: { maxLength: 100 } }} />
+          <TextField label="Nombre" value={nombre} onChange={(e) => cambiarNombre(e.target.value)} autoFocus required slotProps={{ htmlInput: { maxLength: 100 } }} />
+          <Box sx={{ p: 1.5, borderRadius: '14px', bgcolor: equivalente ? colores.salviaClara : colores.escarcha, transition: 'background-color .2s' }}>
+            <Autocomplete
+              options={base}
+              value={equivalente}
+              onChange={(_, v) => {
+                setEquivalenteTocado(true)
+                aplicarEquivalente(v)
+              }}
+              getOptionLabel={(o) => o?.nombre ?? ''}
+              isOptionEqualToValue={(o, v) => o.id === v.id}
+              groupBy={(o) => o.categoria?.nombre ?? ''}
+              autoHighlight
+              renderOption={(props, o) => {
+                const { key, ...resto } = props
+                return (
+                  <Box component="li" key={key} {...resto} sx={{ gap: 1.25 }}>
+                    <ImagenAlimento tipo="ingrediente" id={o.id} url={o.imagenUrl} emoji={o.emoji} radio={8} sx={{ width: 28, height: 28 }} tamanioEmoji="0.95rem" />
+                    {o.nombre}
+                  </Box>
+                )
+              }}
+              renderInput={(params) => (
+                <TextField {...params} size="small" label="¿Es un tipo de…? (opcional)" placeholder="Ninguno" sx={{ bgcolor: colores.superficie, borderRadius: '12px' }} />
+              )}
+            />
+            <Typography variant="caption" color="text.secondary" component="p" sx={{ mt: 1, mx: 0.5 }}>
+              {equivalente
+                ? `Las recetas que llevan ${equivalente.nombre.toLowerCase()} van a tener en cuenta este ingrediente.`
+                : 'Si es una variedad de algo que ya está en la lista (por ejemplo "papa negra" es una papa), elegilo para que cuente en las ideas.'}
+            </Typography>
+          </Box>
           <TextField select label="Categoría" value={categoriaId} onChange={(e) => setCategoriaId(e.target.value)}>
             {categorias.map((c) => (
               <MenuItem key={c.id} value={c.id}>{c.emoji}  {c.nombre}</MenuItem>
